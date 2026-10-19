@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      backup:
+        description: Also push the encrypted backup now
+        type: boolean
+        default: false
 concurrency:
   group: dashboard
   cancel-in-progress: false
@@ -49,6 +54,7 @@ jobs:
           DATA_KEY: ${{ secrets.DATA_KEY }}
           BACKUP_REMOTE: git@github.com:laurentb-bit/laurentbstark.git
           TOOLS: ${{ runner.temp }}/tools
+          FORCE_BACKUP: ${{ inputs.backup && '1' || '' }}
         # Output stays in the encrypted bundle: this log is public.
         run: app/cloud/run.sh > /dev/null 2>&1
       - name: Save
@@ -63,4 +69,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           left=$(( START + 300 - $(date +%s) )); [ "$left" -gt 0 ] && sleep "$left"
-          gh workflow run run.yml -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
+          gh workflow run run.yml -R "$GITHUB_REPOSITORY" -f backup=false >/dev/null 2>&1 || true
