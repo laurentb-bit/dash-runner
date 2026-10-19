@@ -1,0 +1,66 @@
+name: run
+# Every 5 minutes. GitHub's schedule can run late, so each run also starts the
+# next one 5 minutes after it began; the concurrency group keeps one at a time.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: dashboard
+  cancel-in-progress: false
+permissions:
+  contents: read
+  actions: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Start
+        run: echo "START=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Code
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh && printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf 'Host github.com\n  IdentityFile ~/.ssh/id_deploy\n  StrictHostKeyChecking accept-new\n' > ~/.ssh/config
+          git clone -q --depth 1 -b dashboard-code git@github.com:laurentb-bit/laurentbstark.git app
+      - name: Data
+        uses: actions/cache/restore@v4
+        with:
+          path: data.enc
+          key: data-${{ github.run_id }}
+          restore-keys: data-
+      - name: Tools
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/tools
+          key: wrangler3-v1
+      - name: OCR
+        run: sudo apt-get install -y -qq tesseract-ocr >/dev/null 2>&1 || true
+      - name: Run
+        env:
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
+          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+          POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+          DATA_KEY: ${{ secrets.DATA_KEY }}
+          BACKUP_REMOTE: git@github.com:laurentb-bit/laurentbstark.git
+          TOOLS: ${{ runner.temp }}/tools
+        # Output stays in the encrypted bundle: this log is public.
+        run: app/cloud/run.sh > /dev/null 2>&1
+      - name: Save
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data.enc
+          key: data-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Next
+        if: always() && github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          left=$(( START + 300 - $(date +%s) )); [ "$left" -gt 0 ] && sleep "$left"
+          gh workflow run run.yml -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
