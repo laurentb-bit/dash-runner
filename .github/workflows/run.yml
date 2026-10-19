@@ -56,7 +56,18 @@ jobs:
           TOOLS: ${{ runner.temp }}/tools
           FORCE_BACKUP: ${{ inputs.backup && '1' || '' }}
         # Output stays in the encrypted bundle: this log is public.
-        run: app/cloud/run.sh > /dev/null 2>&1
+        # Only one status word per job is printed ("find: ok"); details stay encrypted.
+        run: |
+          app/cloud/run.sh > /dev/null 2>&1 || echo "run.sh: FAILED"
+          cat "$RUNNER_TEMP/status" 2>/dev/null || true
+      - name: Encrypted copy (for debugging, 1 day)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-enc
+          path: data.enc
+          retention-days: 1
+          if-no-files-found: ignore
       - name: Save
         if: always()
         uses: actions/cache/save@v4
