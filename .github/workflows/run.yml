@@ -51,6 +51,7 @@ jobs:
           DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
           POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
           POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           DATA_KEY: ${{ secrets.DATA_KEY }}
           BACKUP_REMOTE: git@github.com:laurentb-bit/laurentbstark.git
           TOOLS: ${{ runner.temp }}/tools
