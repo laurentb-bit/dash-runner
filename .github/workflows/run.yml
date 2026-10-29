@@ -1,6 +1,9 @@
 name: run
-# Every 5 minutes. GitHub's schedule can run late, so each run also starts the
-# next one 5 minutes after it began; the concurrency group keeps one at a time.
+# Every 5 minutes. GitHub's schedule really fires about once an hour, so each
+# run also starts the next one 5 minutes after it began; the concurrency group
+# keeps one running and one waiting. Every run does this, scheduled ones too: a
+# scheduled run that bumps the waiting one out of the queue would otherwise end
+# the chain (it fell back to hourly that way, Oct 2026).
 on:
   schedule:
     - cron: "*/5 * * * *"
@@ -78,7 +81,7 @@ jobs:
           path: data.enc
           key: data-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Next
-        if: always() && github.event_name == 'workflow_dispatch'
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
